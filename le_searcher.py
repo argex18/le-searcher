@@ -5,14 +5,15 @@ from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
 from ibm_watson.websocket import RecognizeCallback, AudioSource
 import json
 
+response = None
+
 class MyRecognizeCallback(RecognizeCallback):
     def __init__(self):
         RecognizeCallback.__init__(self)
 
     def on_data(self, data):
-        text = json.dumps(data, indent=3)
-        with open('text/m3l7_01.json', 'wb') as f:
-            f.write( json.loads(text).encode('utf-8') )
+        global response
+        response = json.dumps(data, indent=3).encode('utf-8')
 
     def on_error(self, error):
         print('Error received: {}'.format(error))
@@ -22,18 +23,20 @@ class MyRecognizeCallback(RecognizeCallback):
 
 myRecognizeCallback = MyRecognizeCallback()
 
-def convert(lesson_file, text_file=None):
+def convert(lesson_file, json_file=None):
+    global response
     try:
         if not isinstance(lesson_file, str):
             raise TypeError('lesson_file argument type must be a string and end with .wav (audio file)')
         if not path.exists(lesson_file):
             raise FileNotFoundError('the lesson file path does not exist')
-        if text_file == None:
-            basename = path.basename(lesson_file)
-            text_file = basename.replace(basename.split('.')[-1], 'txt')
         # 20/12/2020 16:30
-        # print(basename + ', ' + text_file)
+        # print(basename + ', ' + json_file)
+        if json_file == None:
+            basename = path.basename(lesson_file)
+            json_file = basename.replace(basename.split('.')[-1], 'json')
 
+        # 20/12/2020 20:20
         #speech recognition
         sr = ibm_speechrecognition()
         with open(lesson_file, 'rb') as audio_file:
@@ -46,12 +49,12 @@ def convert(lesson_file, text_file=None):
                 max_alternatives=3,
                 inactivity_timeout=-1
             )
+        
+        # 20/12/2020 20:35
+        # save to json file
+        with open(f'json/{json_file}', 'wb') as f:
+            f.write(response)
 
-        """    
-        if text != None:
-            with open(f'text/{text_file}', 'wb') as f:
-                f.write(text)
-        """
     except Exception as e:
         print_exc()
 
