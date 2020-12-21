@@ -4,6 +4,7 @@ from ibm_watson import SpeechToTextV1
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
 from ibm_watson.websocket import RecognizeCallback, AudioSource
 import json
+import re
 
 response = None
 
@@ -23,11 +24,14 @@ class MyRecognizeCallback(RecognizeCallback):
 
 myRecognizeCallback = MyRecognizeCallback()
 
-def convert(lesson_file, json_file=None):
+def convert(lesson_file, content_type, json_file=None):
     global response
+    pattern = r'audio/[a-zA-Z0-9]+'
     try:
         if not isinstance(lesson_file, str):
             raise TypeError('lesson_file argument type must be a string and end with .wav (audio file)')
+        if not isinstance(content_type, str) or not re.match(pattern=pattern, string=content_type):
+            raise TypeError('content_type passed is not of type str or it\'s invalid')
         if not path.exists(lesson_file):
             raise FileNotFoundError('the lesson file path does not exist')
         # 20/12/2020 16:30
@@ -37,16 +41,16 @@ def convert(lesson_file, json_file=None):
             json_file = basename.replace(basename.split('.')[-1], 'json')
 
         # 20/12/2020 20:20
-        #speech recognition
+        # speech recognition
         sr = ibm_speechrecognition()
         with open(lesson_file, 'rb') as audio_file:
             audio_source = AudioSource(audio_file)
             sr.recognize_using_websocket(
                 audio=audio_source,
-                content_type='audio/wav',
+                content_type=content_type,
                 recognize_callback=myRecognizeCallback,
                 model='it-IT_BroadbandModel',
-                max_alternatives=3,
+                max_alternatives=1,
                 inactivity_timeout=-1
             )
         
@@ -54,9 +58,13 @@ def convert(lesson_file, json_file=None):
         # save to json file
         with open(f'json/{json_file}', 'wb') as f:
             f.write(response)
-
+        
+        return json.loads( response.decode('utf-8') )
+        
     except Exception as e:
         print_exc()
+    finally:
+        return None
 
 def ibm_speechrecognition():
     authenticator = IAMAuthenticator(apikey='Wjfeh8MOpjxMLni5J7z2PUEhKdcMx37_RbNFyeRIIdFI')
